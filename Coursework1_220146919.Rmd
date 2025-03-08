@@ -1,0 +1,102 @@
+---
+title: "MTH6139 Time Series" 
+subtitle: "Coursework 1 -- 22014919" 
+author: "Rojin Sahgul" 
+date: "Spring term 2025" 
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab 
+    highlight: tango
+---
+ 
+```{r, echo=FALSE}
+# This code will display the QMUL logo at the top right of the page
+# Do not change this code
+htmltools::img(src = knitr::image_uri("images/QMlogo.png"),
+               alt = 'logo',
+               style = 'position:absolute; top:0; right:0; padding:10px; width:20%;')
+```
+
+# Section 1: Introduction
+This project analyses UK mortgage interest rates using the Prophet forecasting model. The dataset focuses on mortgage rates offered by the bank in the UK from 1999 to 2023. The purpose of this project is to predict mortgage rates for the next two years.
+
+## 1.1 Creating the model
+To begin with, I selected the relevant columns from the dataset that I wanted to use for the model. I chose 'Bank_rate' and 'date'. To assign the columns with the correct name I ran the code `mortgage_data <-UK_Mortgage_rates[,c("date","Bank_rate")]`. Then to change the date into the correct format I did `mortgage_data$Date <-as.Date(mortgage_data$Date, format = "%d/%m/%Y")`.
+
+```{r echo=FALSE}
+library(readr)
+```
+
+```{r echo=FALSE}
+UK_Mortgage_Interest_Rates <- read_csv("data/UK Mortgage Interest Rates.csv", show_col_types = FALSE)
+mortgage_data <- UK_Mortgage_Interest_Rates[, c("Date", "Bank_Rate")]
+mortgage_data$Date <- as.Date(mortgage_data$Date, format = "%d/%m/%Y")
+```
+
+The next step was to change the column names to `ds` and `y`. To do this I did the following:
+```{r echo=TRUE,results='hide',message=FALSE,warning=FALSE}
+library(dplyr)
+mortgage_data <- mortgage_data %>%rename(ds = Date, y = Bank_Rate)
+```
+
+
+## 1.2 Using Prophet 
+
+After ensuring the data was in the correct format, the next step was to apply the prophet model. 
+
+```{r echo=TRUE,results='hide',message=FALSE,warning=FALSE}
+library(prophet)
+InterestRateModel<-prophet(mortgage_data)
+```
+
+
+## 1.3 Analysing the model
+
+In order to create future dates to forecast I did the following:
+
+```{r}
+FutureRates=make_future_dataframe(InterestRateModel, periods=24, freq='month')
+PredictedRates=predict(InterestRateModel,FutureRates)
+```
+This forecasts the next two years, with monthly intervals. 
+
+
+```{r}
+plot(InterestRateModel,PredictedRates)
+
+```
+
+The graph shows that after 2007 the interest rates decreased significantly, this could be due to the financial crisis. From 2022 onward, the interest rates began to increase as the Bank of England increased its base rate to combat inflation.
+The blue shaded area represents the uncertainty in the forecast, which means the further ahead we look the less certain the prediction becomes.
+The forecast suggests that interest rates may continue to rise in 2025. However, the blue shaded area represents uncertainty, meaning there is some variation in the prediction. While the model suggests an upward trend, real-world factors like market conditions could affect the final result.
+  
+To see the forecast broken down into the trend and yearly seasonality, I ran the following:
+
+```{r}
+
+prophet_plot_components(InterestRateModel, PredictedRates)
+
+```
+
+The trend shows a significant decrease in interest rates from 2000 to 2015, it then begins to increase from 2020. The yearly seasonality shows that the interest rates fluctuate within a year, with the peak being around July.
+
+# Section 2 
+
+## 2.1 Breusch–Pagan test
+
+To check for heteroscedasticity I used the Breusch-Pagan test.
+
+```{r echo=TRUE,results='hide',message=FALSE,warning=FALSE}
+library(lmtest)
+```
+
+```{r}
+model_lm <- lm(y ~ ds, data = mortgage_data)
+bp_test <- bptest(model_lm)
+print(bp_test)
+```
+
+The p-value is less than 0.05 which means heteroscedasticity is present, so we reject the null hypothesis.
+
